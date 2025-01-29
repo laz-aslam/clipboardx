@@ -43,10 +43,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var clipboardManager = ClipboardManager.shared
     private var eventMonitor: Any?
     private var hotKeyRef: EventHotKeyRef?
+    private var historyMenu: NSMenu?
+    private var trackingTimer: Timer?
+    private var isMenuVisible = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
         registerGlobalShortcut()
+        setupHistoryMenu()
     }
     
     private func setupMenuBar() {
@@ -94,10 +98,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotKeyRef = gHotKeyRef
     }
     
+    private func setupHistoryMenu() {
+        historyMenu = NSMenu()
+        historyMenu?.delegate = self
+    }
+    
     func menuWillOpen(_ menu: NSMenu) {
         menu.removeAllItems()
         
-        for item in clipboardManager.getHistory() {
+        // Get history items (limited to 10 for menu bar)
+        let historyItems = clipboardManager.getHistory().prefix(10)
+        
+        // Add history items
+        for item in historyItems {
             let menuItem = NSMenuItem(title: item.prefix(50) + (item.count > 50 ? "..." : ""),
                                     action: #selector(menuItemClicked(_:)),
                                     keyEquivalent: "")
@@ -109,44 +122,87 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(NSMenuItem(title: "No items in history", action: nil, keyEquivalent: ""))
         }
         
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
+        // Add Quit option only to the status item menu
+        if menu === statusItem.menu {
+            menu.addItem(NSMenuItem.separator())
+            menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
+        }
+    }
+    
+    private func showClipboardHistory() {
+        isMenuVisible = true
+        
+        // Show initial menu at current mouse location
+        updateMenuPosition()
+        
+        // Start tracking mouse movement
+        trackingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            self?.updateMenuPosition()
+        }
+        
+        // Add event monitor for ESC key and clicks outside
+        let eventMask: NSEvent.EventTypeMask = [.keyDown, .leftMouseDown, .rightMouseDown]
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: eventMask) { [weak self] event in
+            if event.type == .keyDown {
+                if event.keyCode == 53 { // ESC key
+                    self?.dismissMenu()
+                }
+            } else {
+                self?.dismissMenu()
+            }
+        }
+    }
+    
+    private func updateMenuPosition() {
+        let mouseLocation = NSEvent.mouseLocation
+        let screenFrame = NSScreen.main?.frame ?? .zero
+        
+        let point = NSPoint(
+            x: mouseLocation.x,
+            y: screenFrame.height - mouseLocation.y
+        )
+        
+        // Update menu items before showing
+        if !isMenuVisible {
+            menuWillOpen(historyMenu!)
+        }
+        
+        // Show menu at cursor position
+        historyMenu?.popUp(
+            positioning: historyMenu?.items.first,
+            at: NSPoint(x: point.x, y: point.y - 5),
+            in: nil
+        )
+    }
+    
+    private func dismissMenu() {
+        isMenuVisible = false
+        trackingTimer?.invalidate()
+        trackingTimer = nil
+        eventMonitor = nil
+        historyMenu?.cancelTracking()
     }
     
     @objc private func menuItemClicked(_ sender: NSMenuItem) {
         guard let text = sender.representedObject as? String else { return }
         clipboardManager.copyToClipboard(text)
         
+        // Dismiss menu
+        dismissMenu()
+        
         // Simulate CMD+V to paste immediately
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             let source = CGEventSource(stateID: .hidSystemState)
             
-            // Create CMD+V events
             let cmdVDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
             cmdVDown?.flags = .maskCommand
             
             let cmdVUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
             cmdVUp?.flags = .maskCommand
             
-            // Post events
             cmdVDown?.post(tap: .cghidEventTap)
             cmdVUp?.post(tap: .cghidEventTap)
         }
-    }
-    
-    private func showClipboardHistory() {
-        let mouseLocation = NSEvent.mouseLocation
-        let screenFrame = NSScreen.main?.frame ?? .zero
-        
-        // Convert from screen coordinates (bottom-left) to window coordinates (top-left)
-        let adjustedLocation = NSPoint(
-            x: mouseLocation.x,
-            y: screenFrame.height - mouseLocation.y
-        )
-        
-        statusItem.menu?.popUp(positioning: nil,
-                             at: adjustedLocation,
-                             in: nil)
     }
     
     @objc private func quitApp() {

@@ -20,6 +20,13 @@ struct PermissionsView: View {
                 Text("Welcome to ClipboardX")
                     .font(.title)
                     .fontWeight(.semibold)
+                
+                HStack(spacing: 4) {
+                    Text("Global Shortcut:")
+                        .foregroundStyle(.secondary)
+                    KeyboardShortcut()
+                }
+                .font(.subheadline)
             }
             .padding(.top, 20)
             
@@ -65,18 +72,47 @@ struct PermissionsView: View {
     }
     
     private func requestAccessibilityPermission() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
-        let enabled = AXIsProcessTrustedWithOptions(options)
-        isAccessibilityEnabled = enabled
+        // First check if we already have access
+        if AXIsProcessTrusted() {
+            isAccessibilityEnabled = true
+            return
+        }
         
-        // If not immediately granted, start checking periodically
-        if !enabled {
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-                isAccessibilityEnabled = AXIsProcessTrusted()
-                if isAccessibilityEnabled {
-                    timer.invalidate()
+        if #available(macOS 13, *) {
+            // For Ventura and later
+            let scriptSource = """
+            tell application "System Settings"
+                reveal anchor "Privacy_Accessibility" of pane id "com.apple.settings.PrivacySecurity.extension"
+                activate
+            end tell
+            """
+            
+            if let script = NSAppleScript(source: scriptSource) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+                
+                if error != nil {
+                    // Fallback if AppleScript fails
+                    openAccessibilitySettingsLegacy()
                 }
             }
+        } else {
+            // For older macOS versions
+            openAccessibilitySettingsLegacy()
+        }
+        
+        // Start checking for permission status
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            if AXIsProcessTrusted() {
+                isAccessibilityEnabled = true
+                timer.invalidate()
+            }
+        }
+    }
+    
+    private func openAccessibilitySettingsLegacy() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
         }
     }
     
@@ -110,8 +146,13 @@ struct PermissionRow: View {
                 .foregroundStyle(.secondary)
             
             if !isEnabled {
-                Button(buttonTitle, action: action)
-                    .padding(.top, 4)
+                Button(action: action) {
+                    Text(buttonTitle)
+                        .frame(width: 120)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .padding(.top, 4)
             } else {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
@@ -120,6 +161,24 @@ struct PermissionRow: View {
                 }
                 .padding(.top, 4)
             }
+        }
+    }
+}
+
+struct KeyboardShortcut: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            Group {
+                Text("⌘")
+                Text("+")
+                Text("⇧")
+                Text("+")
+                Text("V")
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(.quaternary)
+            .cornerRadius(4)
         }
     }
 } 

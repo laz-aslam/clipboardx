@@ -17,5 +17,7 @@
     <false/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
 </dict>
 </plist> 
