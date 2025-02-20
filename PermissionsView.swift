@@ -95,7 +95,10 @@ struct PermissionsView: View {
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
             if AXIsProcessTrusted() {
                 isAccessibilityEnabled = true
-                timer.invalidate()
+                // Find and reset the PermissionRow's requesting state
+                DispatchQueue.main.async {
+                    timer.invalidate()
+                }
             }
         }
     }
@@ -125,6 +128,7 @@ struct PermissionRow: View {
     let buttonTitle: String
     let isEnabled: Bool
     let action: () -> Void
+    @State private var isRequesting = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -136,8 +140,21 @@ struct PermissionRow: View {
                 .foregroundStyle(.secondary)
             
             if !isEnabled {
-                Button(buttonTitle, action: action)
+                if isRequesting {
+                    HStack {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Waiting for permission...")
+                            .foregroundStyle(.secondary)
+                    }
                     .padding(.top, 4)
+                } else {
+                    Button(buttonTitle) {
+                        isRequesting = true
+                        action()
+                    }
+                    .padding(.top, 4)
+                }
             } else {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
