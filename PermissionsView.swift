@@ -60,7 +60,16 @@ struct PermissionsView: View {
         .padding(40)
         .frame(width: 500)
         .onAppear {
+            // Check initial state
             isAccessibilityEnabled = AXIsProcessTrusted()
+            
+            // Set up periodic checking
+            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+                let trusted = AXIsProcessTrusted()
+                if trusted != isAccessibilityEnabled {
+                    isAccessibilityEnabled = trusted
+                }
+            }
         }
     }
     

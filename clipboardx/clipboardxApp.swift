@@ -20,17 +20,22 @@ struct clipboardxApp: App {
         WindowGroup {
             if !hasGrantedPermissions {
                 PermissionsView {
-                    NSApplication.shared.windows.first?.close()
+                    // Close the window and hide the app
+                    if let window = NSApplication.shared.windows.first {
+                        window.close()
+                    }
+                    NSApplication.shared.hide(nil)
                 }
                 .onAppear { showingPermissions = true }
-                .frame(width: 500, height: 500)
             } else {
+                // Show the same permissions view but with permissions already granted
                 PermissionsView {
-                    NSApplication.shared.windows.first?.close()
+                    if let window = NSApplication.shared.windows.first {
+                        window.close()
+                    }
+                    NSApplication.shared.hide(nil)
                 }
                 .onAppear { showingPermissions = true }
-                .frame(width: 500, height: 500)
-                // EmptyView()  // <-- This will show a blank screen
             }
         }
         .windowStyle(.hiddenTitleBar)
