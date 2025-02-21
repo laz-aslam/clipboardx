@@ -14,6 +14,7 @@ struct PermissionsView: View {
     @AppStorage("hasGrantedPermissions") private var hasGrantedPermissions = false
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @State private var isAccessibilityEnabled = false
+    @State private var isRequestingPermission = false
     
     var onComplete: () -> Void
     
@@ -36,6 +37,7 @@ struct PermissionsView: View {
                     description: "Required to detect keyboard shortcuts",
                     buttonTitle: "Grant Access",
                     isEnabled: isAccessibilityEnabled,
+                    isLoading: isRequestingPermission,
                     action: requestAccessibilityPermission
                 )
                 
@@ -46,6 +48,7 @@ struct PermissionsView: View {
             }
             .padding()
             .frame(maxWidth: 400)
+            
             
             Button("Continue") {
                 hasGrantedPermissions = true
@@ -62,17 +65,30 @@ struct PermissionsView: View {
     }
     
     private func requestAccessibilityPermission() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
-        let enabled = AXIsProcessTrustedWithOptions(options)
-        isAccessibilityEnabled = enabled
+        isRequestingPermission = true
         
-        // If not immediately granted, start checking periodically
-        if !enabled {
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-                isAccessibilityEnabled = AXIsProcessTrusted()
-                if isAccessibilityEnabled {
-                    timer.invalidate()
+        // Open System Settings directly
+        if let settingsUrl = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(settingsUrl)
+        }
+        
+        // Start checking for permission after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
+            let enabled = AXIsProcessTrustedWithOptions(options)
+            isAccessibilityEnabled = enabled
+            
+            // If not immediately granted, start checking periodically
+            if !enabled {
+                Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+                    isAccessibilityEnabled = AXIsProcessTrusted()
+                    if isAccessibilityEnabled {
+                        timer.invalidate()
+                        isRequestingPermission = false
+                    }
                 }
+            } else {
+                isRequestingPermission = false
             }
         }
     }
@@ -95,6 +111,7 @@ struct PermissionRow: View {
     let description: String
     let buttonTitle: String
     let isEnabled: Bool
+    let isLoading: Bool
     let action: () -> Void
     
     var body: some View {
@@ -107,8 +124,19 @@ struct PermissionRow: View {
                 .foregroundStyle(.secondary)
             
             if !isEnabled {
-                Button(buttonTitle, action: action)
-                    .padding(.top, 4)
+                Button(action: action) {
+                    if isLoading {
+                        HStack {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Opening Settings...")
+                        }
+                    } else {
+                        Text(buttonTitle)
+                    }
+                }
+                .padding(.top, 4)
+                .disabled(isLoading)
             } else {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")

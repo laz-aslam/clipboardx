@@ -25,7 +25,12 @@ struct clipboardxApp: App {
                 .onAppear { showingPermissions = true }
                 .frame(width: 500, height: 500)
             } else {
-                EmptyView()
+                PermissionsView {
+                    NSApplication.shared.windows.first?.close()
+                }
+                .onAppear { showingPermissions = true }
+                .frame(width: 500, height: 500)
+                // EmptyView()  // <-- This will show a blank screen
             }
         }
         .windowStyle(.hiddenTitleBar)
