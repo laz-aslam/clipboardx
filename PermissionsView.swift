@@ -76,26 +76,34 @@ struct PermissionsView: View {
     private func requestAccessibilityPermission() {
         isRequestingPermission = true
         
-        // Try to prompt for accessibility permission first
+        // First try to prompt for accessibility permission
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
-        let trusted = AXIsProcessTrustedWithOptions(options)
+        let _ = AXIsProcessTrustedWithOptions(options)
         
-        if !trusted {
-            // If not immediately granted, open System Settings
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Show instructions if needed
+        if !AXIsProcessTrusted() {
+            let alert = NSAlert()
+            alert.messageText = "Enable Accessibility Access"
+            alert.informativeText = "To enable accessibility access:\n\n1. Open System Settings\n2. Go to Privacy & Security > Accessibility\n3. Find ClipboardX and enable it"
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Cancel")
+            
+            if alert.runModal() == .alertFirstButtonReturn {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                     NSWorkspace.shared.open(url)
                 }
             }
         }
         
-        // Start checking for permission
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+        // Start checking for permission with more frequent updates initially
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
             let trusted = AXIsProcessTrusted()
-            if trusted {
-                isAccessibilityEnabled = true
-                isRequestingPermission = false
-                timer.invalidate()
+            DispatchQueue.main.async {
+                if trusted {
+                    isAccessibilityEnabled = true
+                    isRequestingPermission = false
+                    timer.invalidate()
+                }
             }
         }
     }
