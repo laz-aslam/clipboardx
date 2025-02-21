@@ -5,6 +5,8 @@
     <!-- existing entries -->
     <key>NSAccessibilityUsageDescription</key>
     <string>ClipboardX needs accessibility access to detect keyboard shortcuts and manage clipboard operations.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>ClipboardX needs to control System Settings to help you enable accessibility access.</string>
     <key>NSPasteboardUsageDescription</key>
     <string>ClipboardX needs access to clipboard to manage your copy history.</string>
     <key>LSUIElement</key>
@@ -16,6 +18,8 @@
     <key>Application supports iTunes file sharing</key>
     <false/>
     <key>LSApplicationCategoryType</key>
-    <string>public.app-category.productivity</string>
+    <string>public.app-category.utilities</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.saphlinks.clipboardx</string>
 </dict>
 </plist> 

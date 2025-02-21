@@ -10,9 +10,9 @@
 	<true/>
 	<key>com.apple.security.files.bookmarks.app-scope</key>
 	<true/>
-	<key>com.apple.security.application-groups</key>
+	<key>com.apple.security.temporary-exception.apple-events</key>
 	<array>
-		<string>5K3QD5YQ9H.com.saphlinks.clipboardx</string>
+		<string>com.apple.systempreferences</string>
 	</array>
 </dict>
 </plist>
